@@ -34,16 +34,87 @@
 
 ---
 
-## 🧪 Laboratory Modules Coverage (Lab 01 – Lab 06)
+## 🧪 Comprehensive Lab Integration Breakdown (Labs 01 – 06)
 
-| Lab Module | Title & Focus | Implemented Features & Technical Rubric |
-| :--- | :--- | :--- |
-| **Lab 01** | **Customer Authentication Service** | • RESTful Customer Auth (Register, Login, Profile `/me`, Logout)<br />• Password hashing via `bcrypt`<br />• JWT generation & `httpOnly` secure cookies<br />• Protected route middleware & password change API |
-| **Lab 02** | **Client-Server Auth Flow** | • React + React Router DOM integration<br />• Cookie-based session persistence across refreshes<br />• Form validation with real-time error states<br />• Dynamic greeting and personalized navigation |
-| **Lab 03** | **Product Catalog & Discovery** | • Dynamic catalog fetching with category filters<br />• Debounced instant search & price sorting (`asc`/`desc`)<br />• Dedicated Product Details view with stock badges<br />• Loading skeletons, empty states, and error handling |
-| **Lab 04** | **Wishlist System** | • MongoDB user-product reference relationships<br />• Protected Wishlist API (`GET`, `POST`, `DELETE`, `PATCH` toggle)<br />• Wishlist count badge in navigation bar<br />• Instant add/remove toggle directly from cards |
-| **Lab 05** | **Shopping Cart & Global State** | • Persistent cart subdocument model with stock bounds<br />• React Context API (`CartContext`) for global synchronization<br />• Quantity controls (`+` / `-`) with optimistic updates<br />• Live derived totals (subtotal, shipping, discount, taxes) |
-| **Lab 06** | **Checkout, Orders & Razorpay** | • Shipping form validation (Phone, PIN, address)<br />• Server-side total recalculation (no client price tampering)<br />• Atomic stock verification and inventory deduction<br />• Razorpay Test Mode order creation & HMAC signature verification<br />• Order history (`/orders`), detailed receipt invoice, and cart auto-clear |
+ShopKart is built as a cumulative, monolithic full-stack application where every lab module establishes the foundation for subsequent modules:
+
+```mermaid
+graph TD
+    Lab1[Lab 01: Auth Backend & JWT] --> Lab2[Lab 02: Client Auth UI & Session Guard]
+    Lab2 --> Lab3[Lab 03: Dynamic Product Catalog & Search]
+    Lab3 --> Lab4[Lab 04: Wishlist System & MongoDB Rel.]
+    Lab4 --> Lab5[Lab 05: Cart Engine & Global Context]
+    Lab5 --> Lab6[Lab 06: Checkout, Razorpay & Order Snapshots]
+```
+
+---
+
+### 🛡️ Lab 01 — Customer Authentication Service (Backend Foundation)
+- **Role in the Application**: Serves as the core identity provider for all customer interactions.
+- **Architectural Implementation**:
+  - `backend/models/customer.model.js`: Mongoose schema storing customer `fullName`, unique `email`, hashed `password`, `phone`, and embedded relational arrays for wishlist and cart items.
+  - `backend/controllers/customer.controller.js`: Controller handling registration with `bcrypt` salt rounds (10), credential verification on login, and `httpOnly` JWT cookie issuance via `backend/utils/generateToken.js`.
+  - `backend/middlewares/auth.middleware.js`: Express middleware verifying the incoming `jwt` cookie against `JWT_SECRET`, extracting `req.user`, and guarding subsequent routes.
+- **Key Endpoints Integrated**: `POST /customers/register`, `POST /customers/login`, `GET /customers/me`, `POST /customers/logout`, `PATCH /customers/change-password`.
+
+---
+
+### 💻 Lab 02 — Client-Server Authentication Flow (Frontend Shell)
+- **Role in the Application**: Provides the authenticated user experience, session persistence, and navigational gates.
+- **Architectural Implementation**:
+  - `frontend/src/pages/Login.jsx` & `Register.jsx`: Interactive authentication interfaces featuring client-side format validation, inline error messaging, and password visibility toggles.
+  - `frontend/src/services/api.js`: Centralized Axios instance configured with `withCredentials: true` so the browser automatically dispatches and retains HttpOnly session cookies.
+  - `frontend/src/App.jsx`: Protected route wrapper checking authentication status on page refreshes via `GET /customers/me` to prevent session loss.
+  - `frontend/src/components/Navbar.jsx`: Dynamic header rendering personalized customer greetings (`Welcome back, Sakshar`), quick-action profile dropdown, and immediate logout actions.
+
+---
+
+### 🛍️ Lab 03 — Product Catalog & Dynamic Discovery
+- **Role in the Application**: Transitions the app from a static site into a data-driven e-commerce marketplace.
+- **Architectural Implementation**:
+  - `backend/models/product.model.js`: Schema defining product titles, descriptions, categories (`Fashion`, `Electronics`, `Home`, etc.), pricing, stock limits, ratings, and image assets.
+  - `backend/utils/seedData.js`: Automated catalog seeder populating the store if empty.
+  - `backend/controllers/product.controller.js`: Filter, sort, and query handler supporting search regex (`?search=`), category filtering (`?category=`), and price sorting (`?sort=price_asc|price_desc`).
+  - `frontend/src/pages/Products.jsx` & `ProductDetails.jsx`: Dynamic listing and PDP pages with category pills, live debounced search bar, stock warning badges (`In Stock` / `Low Stock` / `Out of Stock`), and loading skeleton placeholders.
+
+---
+
+### ❤️ Lab 04 — Persistent Wishlist System
+- **Role in the Application**: Enables customers to bookmark curated items across sessions before making purchase decisions.
+- **Architectural Implementation**:
+  - **Database Modeling**: Directly models user-to-product relationships by persisting an array of Product ObjectIds inside the `Customer` document.
+  - `backend/controllers/wishlist.controller.js`: Exposes endpoints to retrieve populated wishlist items (`GET /wishlist`), add an item without duplication (`POST /wishlist/:productId`), remove items (`DELETE /wishlist/:productId`), and toggle items dynamically (`PATCH /wishlist/:productId/toggle`).
+  - `frontend/src/pages/Wishlist.jsx` & `WishlistCard.jsx`: Dedicated view displaying saved items with one-click "Move to Cart" or "Remove" actions.
+  - `frontend/src/components/Navbar.jsx`: Synchronized wishlist counter badge indicating total saved products in real time.
+
+---
+
+### 🛒 Lab 05 — Shopping Cart & Global State Management
+- **Role in the Application**: Manages purchase intent, quantity selection, stock verification, and dynamic cart subtotals.
+- **Architectural Implementation**:
+  - **Data Structure**: `cart` embedded subdocument inside `Customer` storing `{ product: ObjectId, quantity: Number }`.
+  - `backend/controllers/cart.controller.js`:
+    - Enforces stock boundary checks on every quantity increment (`PATCH /cart/:productId`).
+    - Validates that quantity cannot exceed product inventory or drop below 1.
+    - Prevents duplicate cart rows by consolidating quantities on repeated additions (`POST /cart/:productId`).
+  - `frontend/src/context/CartContext.jsx`: React Context Provider supplying global cart state across the entire component tree without prop drilling.
+  - `frontend/src/pages/Cart.jsx` & `CartItem.jsx`: Responsive cart manager computing live derived totals (Subtotal, Shipping, Discount, Taxes) with optimistic quantity controls.
+
+---
+
+### 💳 Lab 06 — Checkout, Orders & Razorpay Payment Integration
+- **Role in the Application**: Completes the full purchase lifecycle by converting the customer's cart into an immutable, tracked order.
+- **Architectural Implementation**:
+  - `backend/models/order.model.js`: Order schema capturing complete customer shipping details, payment gateway metadata, and an **immutable snapshot of items** (title, unit price, quantity) so future catalog price updates never alter historical invoices.
+  - `backend/controllers/order.controller.js`:
+    - **Step 1: Stock & Price Verification**: Recalculates total payable strictly on the server to reject client-side price tampering.
+    - **Step 2: Payment Gateway Handshake**: Interacts with the Razorpay API (`backend/config/razorpay.js`) to generate a unique `razorpay_order_id`.
+    - **Step 3: Signature Verification**: Confirms payments cryptographically using HMAC-SHA256 digest comparison (`POST /orders/verify-payment`).
+    - **Step 4: Atomic Settlement**: Atomically deducts purchased quantities from product inventory, saves the order with status `Confirmed`, and clears the customer's shopping cart (`DELETE /cart`).
+  - `frontend/src/pages/Checkout.jsx`: Multi-step checkout experience including strict shipping form validation (PIN, 10-digit mobile, address), order item review, simulated test checkout, and Razorpay modal integration.
+  - `frontend/src/pages/OrderSuccess.jsx` & `Orders.jsx`: Real-time order confirmation screen with delivery timeline and historical transaction archive (`GET /orders`, `GET /orders/:id`).
+
+---
 
 ---
 
